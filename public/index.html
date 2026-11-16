@@ -1,0 +1,534 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Voice Closeout</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Archivo:wght@600;800&family=IBM+Plex+Mono:wght@500&family=IBM+Plex+Sans:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+/* Layout idea: one phone-width column of four numbered job steps, hi-vis orange for the next action. */
+:root {
+  --bg: #eceef1;
+  --surface: #ffffff;
+  --ink: #161a20;
+  --muted: #5b636e;
+  --line: #d3d8de;
+  --accent: #e2570b;
+  --accent-ink: #ffffff;
+  --good: #1d7f47;
+  --warn: #a8670d;
+  --field: #f6f7f9;
+  --font-display: "Archivo", "Arial Narrow", Arial, sans-serif;
+  --font-body: "IBM Plex Sans", system-ui, -apple-system, "Segoe UI", sans-serif;
+  --font-mono: "IBM Plex Mono", ui-monospace, Menlo, monospace;
+  color-scheme: light;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #101317; --surface: #191d23; --ink: #e8ebee; --muted: #9aa3ad; --line: #2d333b;
+    --accent: #ff7a2f; --accent-ink: #1a0d04; --good: #4cc282; --warn: #e3a64a; --field: #12161b;
+    color-scheme: dark;
+  }
+}
+:root[data-theme="dark"] {
+  --bg: #101317; --surface: #191d23; --ink: #e8ebee; --muted: #9aa3ad; --line: #2d333b;
+  --accent: #ff7a2f; --accent-ink: #1a0d04; --good: #4cc282; --warn: #e3a64a; --field: #12161b;
+  color-scheme: dark;
+}
+* { box-sizing: border-box; }
+html, body { margin: 0; }
+body { background: var(--bg); color: var(--ink); font: 15px/1.5 var(--font-body); }
+.wrap { max-width: 720px; margin: 0 auto; padding: 20px 16px 64px; display: grid; gap: 14px; }
+header { display: grid; gap: 4px; padding: 6px 2px 4px; }
+.brand { display: flex; align-items: center; gap: 10px; }
+.brand svg { flex: none; }
+h1 { font: 800 26px/1.1 var(--font-display); letter-spacing: -0.01em; margin: 0; text-wrap: balance; }
+.sub { color: var(--muted); margin: 0; }
+.card { background: var(--surface); border: 1px solid var(--line); border-radius: 12px; padding: 16px; display: grid; gap: 12px; }
+.step { display: flex; align-items: baseline; gap: 10px; }
+.num { font: 800 13px/1 var(--font-display); color: var(--accent-ink); background: var(--accent); border-radius: 6px; padding: 5px 7px; flex: none; }
+.card.done .num { background: var(--good); color: #fff; }
+h2 { font: 700 17px/1.2 var(--font-display); margin: 0; }
+.hint { color: var(--muted); font-size: 13px; margin: 0; }
+label { font-size: 12px; font-weight: 600; color: var(--muted); text-transform: uppercase; letter-spacing: 0.04em; display: block; margin-bottom: 4px; }
+input[type=text], textarea { width: 100%; font: 15px/1.45 var(--font-body); color: var(--ink); background: var(--field); border: 1px solid var(--line); border-radius: 8px; padding: 9px 10px; }
+textarea { resize: vertical; min-height: 96px; }
+input:focus-visible, textarea:focus-visible, button:focus-visible, .drop:focus-within { outline: 2px solid var(--accent); outline-offset: 2px; }
+.grid2 { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+.grid4 { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+@media (min-width: 560px) { .grid4 { grid-template-columns: 1.3fr 0.8fr 0.8fr 1.6fr; } }
+.timefield { display: flex; gap: 6px; }
+.timefield input { flex: 1; min-width: 0; }
+button { font: 600 14px/1 var(--font-body); border-radius: 8px; border: 1px solid var(--line); background: var(--surface); color: var(--ink); padding: 10px 12px; cursor: pointer; }
+button:hover { border-color: var(--muted); }
+button:disabled { opacity: 0.55; cursor: default; }
+.primary { background: var(--accent); border-color: var(--accent); color: var(--accent-ink); padding: 13px 16px; font-size: 15px; }
+.primary:hover { filter: brightness(1.05); border-color: var(--accent); }
+.row { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; }
+.small { padding: 7px 10px; font-size: 13px; }
+.drop { border: 1.5px dashed var(--line); border-radius: 10px; padding: 14px; display: flex; gap: 12px; align-items: center; cursor: pointer; background: var(--field); }
+.drop.drag { border-color: var(--accent); }
+.drop input { position: absolute; width: 1px; height: 1px; opacity: 0; }
+.drop strong { display: block; }
+.chips { display: flex; flex-wrap: wrap; gap: 6px; }
+.chip { font-size: 12.5px; border: 1px solid var(--line); border-radius: 999px; padding: 3px 9px; background: var(--field); }
+.chip.ok::before { content: ""; display: inline-block; width: 7px; height: 7px; border-radius: 50%; background: var(--good); margin-right: 6px; vertical-align: 1px; }
+.chip.no::before { content: ""; display: inline-block; width: 7px; height: 7px; border-radius: 50%; background: var(--warn); margin-right: 6px; vertical-align: 1px; }
+.mono { font-family: var(--font-mono); }
+.mic { display: flex; align-items: center; gap: 12px; }
+.micbtn { width: 64px; height: 64px; border-radius: 50%; background: var(--accent); border: none; color: var(--accent-ink); display: grid; place-items: center; flex: none; }
+.micbtn.live { animation: pulse 1.2s ease-in-out infinite; }
+@keyframes pulse { 0%, 100% { box-shadow: 0 0 0 0 color-mix(in srgb, var(--accent) 45%, transparent); } 50% { box-shadow: 0 0 0 12px transparent; } }
+@media (prefers-reduced-motion: reduce) { .micbtn.live { animation: none; outline: 3px solid var(--accent); outline-offset: 3px; } }
+.partial { color: var(--muted); font-style: italic; min-height: 1.4em; font-size: 14px; }
+.badge { font-size: 11px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.05em; color: var(--warn); border: 1px solid currentColor; border-radius: 4px; padding: 1px 6px; }
+.status { font-size: 13.5px; color: var(--muted); min-height: 1.3em; }
+.status.err { color: var(--warn); }
+.sigbox { position: relative; border: 1px solid var(--line); border-radius: 10px; background: #fff; height: 150px; touch-action: none; }
+.sigbox canvas { width: 100%; height: 100%; display: block; border-radius: 10px; }
+.sigline { position: absolute; left: 16px; right: 16px; bottom: 34px; border-top: 1px solid #c9ced4; pointer-events: none; }
+.sigx { position: absolute; left: 18px; bottom: 38px; color: #9aa1a9; font: 600 18px var(--font-display); pointer-events: none; }
+.thumbs { display: flex; gap: 8px; flex-wrap: wrap; }
+.thumbs figure { margin: 0; position: relative; }
+.thumbs img { width: 72px; height: 72px; object-fit: cover; border-radius: 8px; border: 1px solid var(--line); display: block; }
+.thumbs button { position: absolute; top: -6px; right: -6px; width: 22px; height: 22px; padding: 0; border-radius: 50%; font-size: 13px; }
+.check { display: flex; gap: 8px; align-items: flex-start; font-size: 14px; }
+.check input { margin-top: 3px; accent-color: var(--accent); }
+.preview { background: var(--field); border: 1px solid var(--line); border-radius: 10px; overflow: hidden; }
+.preview canvas { width: 100%; display: block; background: #fff; }
+.result { display: grid; gap: 10px; }
+.empty { color: var(--muted); font-size: 14px; padding: 18px; text-align: center; }
+footer { color: var(--muted); font-size: 12.5px; text-align: center; padding-top: 6px; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <div class="brand">
+      <svg width="34" height="34" viewBox="0 0 34 34" aria-hidden="true"><rect width="34" height="34" rx="8" fill="var(--accent)"/><path d="M10 18.5l4.5 4.5L24.5 12" fill="none" stroke="var(--accent-ink)" stroke-width="3.2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+      <h1>Voice Closeout</h1>
+    </div>
+    <p class="sub">Talk through the job. Hand the phone to the manager. Send the signed sheet.</p>
+  </header>
+
+  <section class="card" id="codeCard" hidden>
+    <div><label for="accessCode">Beta access code</label><input type="text" id="accessCode" autocomplete="off" autocapitalize="off" spellcheck="false" placeholder="Enter your beta access code"></div>
+    <p class="hint">You only enter it once on this phone.</p>
+  </section>
+
+  <!-- 1. Work order -->
+  <section class="card" id="c1">
+    <div class="step"><span class="num">1</span><h2>Work order sheet</h2></div>
+    <label class="drop" id="drop" for="pdfIn">
+      <input type="file" id="pdfIn" accept="application/pdf,.pdf">
+      <svg width="34" height="40" viewBox="0 0 34 40" aria-hidden="true"><path d="M3 3h19l9 9v25H3z" fill="none" stroke="var(--muted)" stroke-width="2"/><path d="M22 3v9h9" fill="none" stroke="var(--muted)" stroke-width="2"/><text x="17" y="31" font-size="8.5" text-anchor="middle" fill="var(--accent)" font-family="Archivo" font-weight="800">PDF</text></svg>
+      <span><strong id="dropTitle">Upload the sign-off sheet</strong><span class="hint" id="dropHint">The PDF the buyer sent with the work order. Without one, you get a clean Closeout Summary PDF.</span></span>
+    </label>
+    <div class="chips" id="fieldChips"></div>
+    <div class="grid4">
+      <div><label for="techName">Tech name</label><input type="text" id="techName" autocomplete="name"></div>
+      <div><label for="workOrder">Work order #</label><input type="text" id="workOrder" class="mono" inputmode="numeric"></div>
+      <div><label for="date">Date</label><input type="text" id="date"></div>
+      <div><label for="address">Site</label><input type="text" id="address"></div>
+    </div>
+  </section>
+
+  <!-- 2. Talk -->
+  <section class="card" id="c2">
+    <div class="step"><span class="num">2</span><h2>Talk through the job</h2></div>
+    <div class="mic">
+      <button class="micbtn" id="micBtn" aria-label="Start dictation" title="Start dictation">
+        <svg width="26" height="26" viewBox="0 0 24 24" aria-hidden="true"><rect x="8.5" y="2.5" width="7" height="12" rx="3.5" fill="currentColor"/><path d="M5 11a7 7 0 0 0 14 0M12 18v3.5M8.5 21.5h7" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
+      </button>
+      <p class="hint" id="micHint">Say arrival and departure times, what you tested and the results, cable footage, ports, who signs, and anything left open.</p>
+    </div>
+    <div class="partial" id="partial" aria-live="polite"></div>
+    <div>
+      <div class="row" style="justify-content:space-between;margin-bottom:4px"><label for="notes" style="margin:0">Your notes</label><span class="badge" id="exampleBadge">Example notes</span></div>
+      <textarea id="notes" rows="6"></textarea>
+    </div>
+    <div class="row">
+      <button class="primary" id="writeBtn">Write the closeout</button>
+      <button class="small" id="clearNotes">Clear notes</button>
+    </div>
+    <div class="status" id="aiStatus" aria-live="polite"></div>
+  </section>
+
+  <!-- 3. Review -->
+  <section class="card" id="c3">
+    <div class="step"><span class="num">3</span><h2>Check what goes on the sheet</h2></div>
+    <div class="grid2">
+      <div><label for="arrival">Arrival</label><div class="timefield"><input type="text" id="arrival" placeholder="9:50 AM"><button class="small" data-now="arrival">Now</button></div></div>
+      <div><label for="departure">Departure</label><div class="timefield"><input type="text" id="departure" placeholder="1:40 PM"><button class="small" data-now="departure">Now</button></div></div>
+    </div>
+    <div><label for="managerName">Manager on duty (print)</label><input type="text" id="managerName" placeholder="Full name"></div>
+    <div><label for="description">Description of work performed</label><textarea id="description" rows="6" placeholder="Written for you after step 2. Edit anything."></textarea><div class="hint" id="descCount"></div></div>
+    <div><label for="followUps">Open items / follow-ups (one per line)</label><textarea id="followUps" rows="2" style="min-height:56px" placeholder="None"></textarea></div>
+    <div class="chips" id="missingChips"></div>
+  </section>
+
+  <!-- 4. Sign -->
+  <section class="card" id="c4">
+    <div class="step"><span class="num">4</span><h2>Manager signs, then send</h2></div>
+    <div>
+      <div class="row" style="justify-content:space-between;margin-bottom:4px"><label style="margin:0">Manager signature</label><button class="small" id="sigClear">Clear</button></div>
+      <div class="sigbox" id="sigBox"><canvas id="sig" aria-label="Signature pad"></canvas><span class="sigx">×</span><div class="sigline"></div></div>
+    </div>
+    <div>
+      <label for="photoIn">Photos (speed tests, DEMARC, rack, receipt)</label>
+      <div class="row"><button class="small" id="photoBtn">Add photos</button><span class="hint">Added as pages after the sheet.</span></div>
+      <input type="file" id="photoIn" accept="image/*" multiple hidden>
+      <div class="thumbs" id="thumbs" style="margin-top:8px"></div>
+    </div>
+    <label class="check" for="addSummary" style="text-transform:none;letter-spacing:0;font-weight:400;color:var(--ink)"><input type="checkbox" id="addSummary"> <span>Add a Closeout Summary page (added for you when something doesn't fit on the sheet)</span></label>
+    <button class="primary" id="buildBtn">Build signed PDF</button>
+    <div class="status" id="buildStatus" aria-live="polite"></div>
+    <div class="result" id="result" hidden>
+      <div class="preview"><canvas id="prev"></canvas></div>
+      <div class="row">
+        <button class="primary" id="shareBtn" hidden>Share PDF</button>
+        <button id="dlBtn">Download PDF</button>
+        <button id="copyBtn">Copy closeout notes</button>
+      </div>
+      <p class="hint" id="dlHint">Send the PDF to the buyer's deliverables email. Paste the notes into the Field Nation or WorkMarket closeout.</p>
+    </div>
+  </section>
+
+  <footer>The PDF and photos stay on this phone. Only your voice and the sheet's text go to the server to write the description. <a href="#" id="showCode" style="color:inherit">Access code</a></footer>
+</div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js"></script>
+<script src="https://unpkg.com/pdf-lib@1.17.1/dist/pdf-lib.min.js"></script>
+<script src="core.js"></script>
+<script>
+(function () {
+  const $ = id => document.getElementById(id);
+  const EXAMPLE = "Arrived 9:50. Checked in with Velocity NOC, found the fiber hand-off at the demark, all shipped equipment on site. Speed test with the NOC IPs, 940 down 938 up on speedtest and fast dot com. Ran a 45 foot cat 6 extension from the demark to the IDF rack, terminated and tested good. NOC said port 2 on the VBand Platinum. Cut over to the new circuit, retest 935 by 930. Sent photos of the hand-off, router, rack and demark. Old DSL modem left in the rack per NOC. Manager is Maria Lopez. Leaving about 1:40.";
+  try { pdfjsLib.GlobalWorkerOptions.workerSrc = "https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js"; } catch (e) {}
+
+  const state = { templateBytes: null, analysis: null, fileName: '', photos: [], outBytes: null, isExample: true };
+
+  // ---------- drafts (this device only) ----------
+  const KEEP = ['techName', 'workOrder', 'date', 'address', 'notes', 'arrival', 'departure', 'managerName', 'description', 'followUps'];
+  function saveDraft() { try { const d = {}; KEEP.forEach(k => d[k] = $(k).value); d.isExample = state.isExample; localStorage.setItem('vc-draft', JSON.stringify(d)); } catch (e) {} }
+  function loadDraft() {
+    try {
+      const d = JSON.parse(localStorage.getItem('vc-draft') || 'null');
+      if (d) { KEEP.forEach(k => { if (d[k] != null) $(k).value = d[k]; }); state.isExample = !!d.isExample; }
+    } catch (e) {}
+    if (!$('notes').value) { $('notes').value = EXAMPLE; state.isExample = true; }
+    if (!$('date').value) $('date').value = new Date().toLocaleDateString('en-US', { month: '2-digit', day: '2-digit', year: '2-digit' });
+    $('exampleBadge').hidden = !state.isExample;
+  }
+  KEEP.forEach(k => $(k).addEventListener('input', () => {
+    if (k === 'notes' && state.isExample) { state.isExample = false; $('exampleBadge').hidden = true; }
+    if (k === 'description') countDesc();
+    saveDraft();
+  }));
+
+  // ---------- backend ----------
+  function getCode() { try { return localStorage.getItem('vc-code') || ''; } catch (e) { return ''; } }
+  $('accessCode').value = getCode();
+  $('accessCode').addEventListener('input', () => { try { localStorage.setItem('vc-code', $('accessCode').value.trim()); } catch (e) {} });
+  async function api(path, body, type) {
+    const r = await fetch(path, { method: 'POST', headers: { 'content-type': type, 'x-access-code': $('accessCode').value.trim() }, body });
+    const data = await r.json().catch(() => ({}));
+    if (r.status === 401) { $('codeCard').hidden = false; $('accessCode').focus(); throw { code: 'wrong_code' }; }
+    if (!r.ok) throw { code: data.error || 'server_error' };
+    return data;
+  }
+  if (!getCode()) $('codeCard').hidden = false;
+  setupMic();
+
+  // ---------- 1. PDF ----------
+  const drop = $('drop');
+  ['dragenter', 'dragover'].forEach(ev => drop.addEventListener(ev, e => { e.preventDefault(); drop.classList.add('drag'); }));
+  ['dragleave', 'drop'].forEach(ev => drop.addEventListener(ev, e => { e.preventDefault(); drop.classList.remove('drag'); }));
+  drop.addEventListener('drop', e => { const f = e.dataTransfer.files[0]; if (f) loadPdf(f); });
+  $('pdfIn').addEventListener('change', e => { const f = e.target.files[0]; if (f) loadPdf(f); });
+
+  const NAMES = { arrival: 'Arrival', departure: 'Departure', managerName: 'Manager name', signature: 'Signature', description: 'Description' };
+  async function loadPdf(file) {
+    $('dropTitle').textContent = file.name;
+    $('dropHint').textContent = 'Reading the sheet...';
+    $('fieldChips').innerHTML = '';
+    try {
+      const bytes = new Uint8Array(await file.arrayBuffer());
+      const a = await Core.analyzePdf(pdfjsLib, bytes);
+      state.templateBytes = bytes; state.analysis = a; state.fileName = file.name;
+      const p = a.prefilled;
+      if (p.techName) $('techName').value = p.techName;
+      if (p.workOrder) $('workOrder').value = p.workOrder;
+      if (p.date) $('date').value = p.date.replace(/\s*-\s*\d{1,2}:\d{2}.*$/, '');
+      if (p.address) $('address').value = p.address;
+      saveDraft();
+      const chips = [];
+      const found = Object.keys(NAMES).filter(k => a.fields[k]);
+      if (found.length) {
+        $('dropHint').textContent = `Sign-off block found on page ${a.pageIndex + 1} of ${a.numPages}. Tap to change the file.`;
+        for (const k of Object.keys(NAMES)) chips.push(`<span class="chip ${a.fields[k] ? 'ok' : 'no'}">${NAMES[k]}${a.fields[k] ? '' : ': goes on summary page'}</span>`);
+      } else {
+        $('dropHint').textContent = 'No sign-off boxes found in this PDF. Everything goes on a Closeout Summary page added to it.';
+      }
+      $('fieldChips').innerHTML = chips.join('');
+      $('c1').classList.add('done');
+    } catch (e) {
+      state.templateBytes = null; state.analysis = null;
+      $('dropHint').textContent = 'This file could not be read as a PDF. Try another, or skip it and get a Closeout Summary PDF.';
+    }
+  }
+
+  // ---------- 2. Dictation ----------
+  // Record -> convert to 16 kHz WAV in 30 s pieces -> send each piece to /api/transcribe.
+  let rec = null, chunks = [], stream = null, timer = null, t0 = 0;
+  const MAX_SEC = 240;
+  function setupMic() {
+    const btn = $('micBtn');
+    if (!navigator.mediaDevices || !window.MediaRecorder) {
+      btn.hidden = true;
+      $('micHint').textContent = 'This browser cannot record. Tap the microphone on your phone keyboard and talk into the notes box.';
+      return;
+    }
+    btn.addEventListener('click', async () => {
+      if (rec && rec.state === 'recording') { rec.stop(); return; }
+      if (state.isExample) { $('notes').value = ''; state.isExample = false; $('exampleBadge').hidden = true; }
+      try {
+        stream = await navigator.mediaDevices.getUserMedia({ audio: { channelCount: 1, echoCancellation: true, noiseSuppression: true } });
+      } catch (e) { $('partial').textContent = 'Microphone blocked. Allow it in the browser settings, or use the mic on your keyboard.'; return; }
+      chunks = [];
+      rec = new MediaRecorder(stream);
+      rec.ondataavailable = e => { if (e.data && e.data.size) chunks.push(e.data); };
+      rec.onstop = onRecorded;
+      rec.start(1000);
+      t0 = Date.now();
+      btn.classList.add('live'); btn.setAttribute('aria-label', 'Stop recording');
+      timer = setInterval(() => {
+        const s = Math.round((Date.now() - t0) / 1000);
+        $('partial').textContent = `Recording ${Math.floor(s / 60)}:${String(s % 60).padStart(2, '0')}. Tap the mic again to stop.`;
+        if (s >= MAX_SEC) rec.stop();
+      }, 500);
+    });
+  }
+  async function onRecorded() {
+    clearInterval(timer);
+    $('micBtn').classList.remove('live'); $('micBtn').setAttribute('aria-label', 'Start recording');
+    stream && stream.getTracks().forEach(t => t.stop());
+    const blob = new Blob(chunks, { type: rec.mimeType || 'audio/webm' });
+    $('partial').textContent = 'Turning speech into text...';
+    try {
+      const pieces = await toWavPieces(blob, 30);
+      const texts = [];
+      for (let i = 0; i < pieces.length; i++) {
+        if (pieces.length > 1) $('partial').textContent = `Turning speech into text... ${i + 1} of ${pieces.length}`;
+        const r = await api('/api/transcribe', pieces[i], 'audio/wav');
+        if (r.text) texts.push(r.text);
+      }
+      const t = $('notes');
+      const said = texts.join(' ').trim();
+      if (said) { t.value = (t.value ? t.value.replace(/\s*$/, ' ') : '') + said; saveDraft(); $('partial').textContent = ''; }
+      else $('partial').textContent = 'No speech heard. Try again closer to the phone.';
+    } catch (e) {
+      $('partial').textContent = e && e.code === 'wrong_code' ? 'Enter your access code at the top, then record again.' : 'Could not turn the recording into text. Check your signal and try again.';
+    }
+  }
+  async function toWavPieces(blob, secs) {
+    const AC = window.AudioContext || window.webkitAudioContext;
+    const ac = new AC();
+    const audio = await ac.decodeAudioData(await blob.arrayBuffer());
+    ac.close && ac.close();
+    const rate = 16000, len = Math.ceil(audio.duration * rate);
+    const off = new OfflineAudioContext(1, len, rate);
+    const src = off.createBufferSource(); src.buffer = audio; src.connect(off.destination); src.start();
+    const pcm = (await off.startRendering()).getChannelData(0);
+    const per = secs * rate, out = [];
+    for (let s = 0; s < pcm.length; s += per) out.push(wav(pcm.subarray(s, Math.min(pcm.length, s + per)), rate));
+    return out;
+  }
+  function wav(samples, rate) {
+    const b = new ArrayBuffer(44 + samples.length * 2), v = new DataView(b);
+    const w = (o, s) => { for (let i = 0; i < s.length; i++) v.setUint8(o + i, s.charCodeAt(i)); };
+    w(0, 'RIFF'); v.setUint32(4, 36 + samples.length * 2, true); w(8, 'WAVE'); w(12, 'fmt ');
+    v.setUint32(16, 16, true); v.setUint16(20, 1, true); v.setUint16(22, 1, true); v.setUint32(24, rate, true);
+    v.setUint32(28, rate * 2, true); v.setUint16(32, 2, true); v.setUint16(34, 16, true); w(36, 'data'); v.setUint32(40, samples.length * 2, true);
+    for (let i = 0; i < samples.length; i++) { const x = Math.max(-1, Math.min(1, samples[i])); v.setInt16(44 + i * 2, x < 0 ? x * 0x8000 : x * 0x7fff, true); }
+    return new Blob([b], { type: 'audio/wav' });
+  }
+  $('clearNotes').addEventListener('click', () => { $('notes').value = ''; state.isExample = false; $('exampleBadge').hidden = true; saveDraft(); $('notes').focus(); });
+
+  // ---------- 2b. Claude writes the closeout ----------
+  $('writeBtn').addEventListener('click', writeCloseout);
+  async function writeCloseout() {
+    const notes = $('notes').value.trim();
+    const st = $('aiStatus');
+    st.className = 'status';
+    if (!notes) { st.textContent = 'Add your notes first: talk or type what you did.'; st.className = 'status err'; return; }
+    const btn = $('writeBtn'); btn.disabled = true; st.textContent = 'Writing the closeout...';
+    const sheet = state.analysis ? state.analysis.text.slice(0, 7000) : '(no work order sheet uploaded)';
+    try {
+      const r = await api('/api/write', JSON.stringify({ notes, sheet }), 'application/json');
+      if (!r || typeof r !== 'object') throw { code: 'invalid_json' };
+      if (r.arrival) $('arrival').value = String(r.arrival);
+      if (r.departure) $('departure').value = String(r.departure);
+      if (r.managerName) $('managerName').value = String(r.managerName);
+      $('description').value = String(r.description || notes);
+      $('followUps').value = Array.isArray(r.followUps) ? r.followUps.map(String).join('\n') : '';
+      const miss = Array.isArray(r.missing) ? r.missing.map(String).slice(0, 3) : [];
+      $('missingChips').innerHTML = miss.map(m => `<span class="chip no">Not mentioned: ${esc(m)}</span>`).join('');
+      countDesc(); saveDraft();
+      st.textContent = 'Done. Check step 3, then get the signature.';
+      $('c2').classList.add('done');
+      $('c3').scrollIntoView({ behavior: matchMedia('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth', block: 'start' });
+    } catch (e) {
+      const code = e && e.code;
+      if (code === 'wrong_code') { st.textContent = 'Enter your access code at the top, then tap again.'; st.className = 'status err'; }
+      else if (code === 'busy') { st.textContent = 'The writer is busy right now. Wait a minute and tap again.'; st.className = 'status err'; }
+      else if (code === 'missing_api_key') { fallbackFill(notes, 'The server has no Claude key yet, so your notes were copied as they are.'); }
+      else { st.textContent = 'The closeout could not be written this time. Tap "Write the closeout" to try again.'; st.className = 'status err'; }
+    } finally { btn.disabled = false; }
+  }
+  function fallbackFill(notes, msg) {
+    $('description').value = notes; countDesc(); saveDraft();
+    $('aiStatus').textContent = msg;
+  }
+  function countDesc() {
+    const n = $('description').value.length;
+    $('descCount').textContent = n ? `${n} characters${n > 650 ? '. Long text shrinks to fit, and anything extra continues on the summary page.' : ''}` : '';
+  }
+
+  // ---------- 3. Now buttons ----------
+  document.querySelectorAll('[data-now]').forEach(b => b.addEventListener('click', () => {
+    $(b.dataset.now).value = new Date().toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' }); saveDraft();
+  }));
+
+  // ---------- 4. Signature ----------
+  const cv = $('sig'), ctx = cv.getContext('2d');
+  let drawing = false, hasInk = false, last = null, bounds = null, strokes = [];
+  function sizeCanvas() {
+    const r = cv.getBoundingClientRect(), dpr = window.devicePixelRatio || 1;
+    cv.width = Math.round(r.width * dpr); cv.height = Math.round(r.height * dpr);
+    ctx.setTransform(dpr, 0, 0, dpr, 0, 0); redraw();
+  }
+  function pen() { ctx.lineWidth = 2.6; ctx.lineCap = 'round'; ctx.lineJoin = 'round'; ctx.strokeStyle = '#0d1f6b'; }
+  function redraw() { ctx.clearRect(0, 0, cv.width, cv.height); pen(); for (const s of strokes) { ctx.beginPath(); s.forEach((p, i) => i ? ctx.lineTo(p.x, p.y) : ctx.moveTo(p.x, p.y)); if (s.length === 1) ctx.lineTo(s[0].x + 0.1, s[0].y); ctx.stroke(); } }
+  function pos(e) { const r = cv.getBoundingClientRect(); return { x: e.clientX - r.left, y: e.clientY - r.top }; }
+  cv.addEventListener('pointerdown', e => { e.preventDefault(); cv.setPointerCapture(e.pointerId); drawing = true; last = pos(e); strokes.push([last]); grow(last); redraw(); });
+  cv.addEventListener('pointermove', e => { if (!drawing) return; const p = pos(e); strokes[strokes.length - 1].push(p); grow(p); pen(); ctx.beginPath(); ctx.moveTo(last.x, last.y); ctx.lineTo(p.x, p.y); ctx.stroke(); last = p; });
+  ['pointerup', 'pointercancel'].forEach(ev => cv.addEventListener(ev, () => { drawing = false; }));
+  function grow(p) { hasInk = true; if (!bounds) bounds = { x0: p.x, y0: p.y, x1: p.x, y1: p.y }; else { bounds.x0 = Math.min(bounds.x0, p.x); bounds.y0 = Math.min(bounds.y0, p.y); bounds.x1 = Math.max(bounds.x1, p.x); bounds.y1 = Math.max(bounds.y1, p.y); } }
+  $('sigClear').addEventListener('click', () => { strokes = []; hasInk = false; bounds = null; redraw(); });
+  window.addEventListener('resize', sizeCanvas);
+  function signaturePng() {
+    if (!hasInk || !bounds) return null;
+    const pad = 6, dpr = window.devicePixelRatio || 1;
+    const sx = Math.max(0, (bounds.x0 - pad) * dpr), sy = Math.max(0, (bounds.y0 - pad) * dpr);
+    const sw = Math.min(cv.width - sx, (bounds.x1 - bounds.x0 + pad * 2) * dpr), sh = Math.min(cv.height - sy, (bounds.y1 - bounds.y0 + pad * 2) * dpr);
+    const out = document.createElement('canvas'); out.width = Math.max(1, Math.round(sw)); out.height = Math.max(1, Math.round(sh));
+    out.getContext('2d').drawImage(cv, sx, sy, sw, sh, 0, 0, out.width, out.height);
+    return out.toDataURL('image/png');
+  }
+
+  // ---------- 4b. Photos ----------
+  $('photoBtn').addEventListener('click', () => $('photoIn').click());
+  $('photoIn').addEventListener('change', async e => {
+    for (const f of e.target.files) {
+      try {
+        const bmp = await createImageBitmap(f);
+        const s = Math.min(1, 1600 / Math.max(bmp.width, bmp.height));
+        const c = document.createElement('canvas'); c.width = Math.round(bmp.width * s); c.height = Math.round(bmp.height * s);
+        c.getContext('2d').drawImage(bmp, 0, 0, c.width, c.height);
+        const blob = await new Promise(r => c.toBlob(r, 'image/jpeg', 0.82));
+        state.photos.push({ name: f.name, caption: f.name.replace(/\.[^.]+$/, ''), jpegBytes: new Uint8Array(await blob.arrayBuffer()), url: URL.createObjectURL(blob) });
+      } catch (err) { $('buildStatus').textContent = `${f.name} could not be read as an image.`; }
+    }
+    e.target.value = ''; renderThumbs();
+  });
+  function renderThumbs() {
+    $('thumbs').innerHTML = '';
+    state.photos.forEach((p, i) => {
+      const fig = document.createElement('figure');
+      fig.innerHTML = `<img alt="${esc(p.name)}" src="${p.url}"><button aria-label="Remove ${esc(p.name)}">×</button>`;
+      fig.querySelector('button').onclick = () => { state.photos.splice(i, 1); renderThumbs(); };
+      $('thumbs').appendChild(fig);
+    });
+  }
+
+  // ---------- 4c. Build ----------
+  $('buildBtn').addEventListener('click', build);
+  async function build() {
+    const st = $('buildStatus'); st.className = 'status';
+    const values = {
+      techName: $('techName').value.trim(), workOrder: $('workOrder').value.trim(), date: $('date').value.trim(), address: $('address').value.trim(),
+      arrival: $('arrival').value.trim(), departure: $('departure').value.trim(), managerName: $('managerName').value.trim(),
+      description: $('description').value.trim(), followUps: $('followUps').value.split('\n').map(s => s.trim()).filter(Boolean),
+      signaturePng: signaturePng(), signedAt: new Date().toLocaleString('en-US', { month: '2-digit', day: '2-digit', year: '2-digit', hour: 'numeric', minute: '2-digit' }),
+      photos: state.photos,
+    };
+    const warn = [];
+    if (!values.description) warn.push('description');
+    if (!values.signaturePng) warn.push('signature');
+    if (!values.managerName) warn.push('manager name');
+    st.textContent = 'Building the PDF...';
+    try {
+      const r = await Core.buildPdf(PDFLib, { templateBytes: state.templateBytes ? state.templateBytes.slice(0) : null, analysis: state.analysis, values, alwaysSummary: $('addSummary').checked });
+      state.outBytes = r.bytes;
+      await renderPreview(r.bytes, state.templateBytes && state.analysis && state.analysis.pageIndex >= 0 ? state.analysis.pageIndex : 0);
+      $('result').hidden = false;
+      const parts = [];
+      if (state.templateBytes) parts.push(r.summary ? 'Sheet filled, summary page added.' : 'Sheet filled.');
+      else parts.push('Closeout Summary PDF ready.');
+      if (values.photos.length) parts.push(`${values.photos.length} photo page${values.photos.length > 1 ? 's' : ''} added.`);
+      if (warn.length) { parts.push(`Still empty: ${warn.join(', ')}.`); st.className = 'status err'; }
+      st.textContent = parts.join(' ');
+      const f = pdfFile();
+      $('shareBtn').hidden = !(navigator.canShare && navigator.canShare({ files: [f] }));
+      $('c4').classList.add('done');
+    } catch (e) {
+      st.textContent = 'The PDF could not be built. If the sheet is password-protected, ask dispatch for an unlocked copy, or remove it to get a summary PDF.'; st.className = 'status err';
+    }
+  }
+  async function renderPreview(bytes, pageIndex) {
+    const doc = await pdfjsLib.getDocument({ data: bytes.slice(0), isEvalSupported: false }).promise;
+    const page = await doc.getPage(Math.min(pageIndex + 1, doc.numPages));
+    const cvp = $('prev'), w = cvp.parentElement.clientWidth || 600, dpr = window.devicePixelRatio || 1;
+    const vp1 = page.getViewport({ scale: 1 });
+    const vp = page.getViewport({ scale: (w / vp1.width) * dpr });
+    cvp.width = vp.width; cvp.height = vp.height;
+    await page.render({ canvasContext: cvp.getContext('2d'), viewport: vp }).promise;
+  }
+  function pdfName() {
+    const wo = $('workOrder').value.trim().replace(/[^\w-]+/g, '');
+    return wo ? `WO-${wo}_signed.pdf` : `closeout_${new Date().toISOString().slice(0, 10)}.pdf`;
+  }
+  function pdfFile() { return new File([state.outBytes], pdfName(), { type: 'application/pdf' }); }
+  $('dlBtn').addEventListener('click', () => {
+    if (!state.outBytes) return;
+    const url = URL.createObjectURL(new Blob([state.outBytes], { type: 'application/pdf' }));
+    const a = document.createElement('a'); a.href = url; a.download = pdfName(); document.body.appendChild(a); a.click(); a.remove();
+    setTimeout(() => URL.revokeObjectURL(url), 60000);
+  });
+  $('shareBtn').addEventListener('click', async () => {
+    try { await navigator.share({ files: [pdfFile()], title: pdfName(), text: `Signed sign-off sheet, WO ${$('workOrder').value.trim()}` }); }
+    catch (e) { if (e && e.name !== 'AbortError') { $('buildStatus').textContent = 'Sharing did not work here. Use Download PDF instead.'; } }
+  });
+  $('copyBtn').addEventListener('click', async () => {
+    const fu = $('followUps').value.split('\n').map(s => s.trim()).filter(Boolean);
+    const lines = [];
+    if ($('arrival').value || $('departure').value) lines.push(`On site ${$('arrival').value || '?'} - ${$('departure').value || '?'}.`);
+    lines.push($('description').value.trim());
+    if (fu.length) lines.push('Open items: ' + fu.join('; '));
+    if ($('managerName').value) lines.push(`Signed off by ${$('managerName').value.trim()}.`);
+    try { await navigator.clipboard.writeText(lines.join('\n')); $('copyBtn').textContent = 'Copied'; setTimeout(() => $('copyBtn').textContent = 'Copy closeout notes', 1600); }
+    catch (e) { $('buildStatus').textContent = 'Copy was blocked here. Select the description in step 3 and copy it.'; }
+  });
+
+  function esc(s) { return String(s).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c])); }
+
+  $('showCode').addEventListener('click', e => { e.preventDefault(); $('codeCard').hidden = false; $('accessCode').focus(); });
+  loadDraft(); countDesc(); sizeCanvas();
+})();
+</script>
+</body>
+</html>
